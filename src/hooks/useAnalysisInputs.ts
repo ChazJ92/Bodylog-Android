@@ -1,4 +1,4 @@
-import { useLiveQuery } from "dexie-react-hooks";
+import { useLiveStorageQuery } from "./useLiveStorageQuery";
 import * as checkinSvc from "@/services/checkinService";
 import * as measSvc from "@/services/measurementService";
 import * as profileSvc from "@/services/profileService";
@@ -6,7 +6,7 @@ import * as measurementTypeSvc from "@/services/measurementTypeService";
 import { resolveAnalysisCircumferences, type AnalysisInputs } from "@/services/analysisService";
 
 export function useAnalysisInputs() {
-  const data = useLiveQuery(async () => {
+  const data = useLiveStorageQuery(async () => {
     const [latest, profile, types] = await Promise.all([
       checkinSvc.getLatest(),
       profileSvc.get(),

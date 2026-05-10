@@ -1,17 +1,20 @@
-import { db, type Profile } from "@/db/db";
+import type { Profile } from "@/db/db";
 import { profileUpdateSchema } from "@/lib/validationSchemas";
+import { getRepositories } from "@/storage/factory";
 
-export const get = (): Promise<Profile | undefined> => db.profile.get("primary");
+const repos = getRepositories();
+
+export const get = (): Promise<Profile | undefined> => repos.profile.getPrimary();
 
 export async function update(
   patch: Partial<Omit<Profile, "id" | "updatedAt">>,
 ): Promise<void> {
   const parsed = profileUpdateSchema.parse(patch);
   const now = Date.now();
-  const existing: Profile = (await db.profile.get("primary")) ?? {
+  const existing: Profile = (await repos.profile.getPrimary()) ?? {
     id: "primary",
     sex: "other",
     updatedAt: now,
   };
-  await db.profile.put({ ...existing, ...parsed, id: "primary", updatedAt: now });
+  await repos.profile.putPrimary({ ...existing, ...parsed, id: "primary", updatedAt: now });
 }

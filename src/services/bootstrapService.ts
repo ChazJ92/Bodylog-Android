@@ -10,15 +10,17 @@
  * Idempotent: the result promise is memoized for the lifetime of the module
  * so concurrent or repeated callers share one execution.
  */
-import { db, type AppMeta } from "@/db/db";
-import { BUILT_IN_TYPES, ensureBuiltInMeasurementTypes } from "@/db/builtIns";
+import type { AppMeta } from "@/db/db";
+import { BUILT_IN_TYPES } from "@/db/builtIns";
+import { getRepositories } from "@/storage/factory";
 
 let readyPromise: Promise<void> | null = null;
+const repos = getRepositories();
 
 export function ensureAppReady(): Promise<void> {
   if (!readyPromise) {
     readyPromise = (async () => {
-      await db.open();
+      await repos.maintenance.open();
       await syncEssentialData();
     })();
   }
@@ -35,9 +37,9 @@ export async function syncEssentialData(): Promise<void> {
 async function seedCanonicalSingletons(): Promise<void> {
   const now = Date.now();
 
-  const settings = await db.settings.get("local");
+  const settings = await repos.settings.getLocal();
   if (!settings) {
-    await db.settings.put({
+    await repos.settings.putLocal({
       id: "local",
       weightUnit: "kg",
       lengthUnit: "cm",
@@ -46,35 +48,35 @@ async function seedCanonicalSingletons(): Promise<void> {
     });
   }
 
-  const profile = await db.profile.get("primary");
+  const profile = await repos.profile.getPrimary();
   if (!profile) {
-    await db.profile.put({ id: "primary", sex: "other", updatedAt: now });
+    await repos.profile.putPrimary({ id: "primary", sex: "other", updatedAt: now });
   }
 }
 
 async function seedMeasurementTypes(): Promise<void> {
   const now = Date.now();
-  const typeCount = await db.measurementTypes.count();
+  const typeCount = await repos.measurementTypes.count();
   if (typeCount === 0) {
     // Fresh DB: seed the canonical Phase 1 set in one go.
-    await db.measurementTypes.bulkPut(
+    await repos.measurementTypes.bulkPut(
       BUILT_IN_TYPES.map((t) => ({ ...t, createdAt: now })),
     );
   } else {
     // Existing DB: additively add only canonical built-ins that are missing.
     // Never wipes, never overwrites legacy rows.
-    await ensureBuiltInMeasurementTypes(db.measurementTypes);
+    await repos.measurementTypes.ensureBuiltIns();
   }
 }
 
 async function ensureAppMeta(): Promise<void> {
-  const meta = await db.appMeta.get("meta");
+  const meta = await repos.appMeta.getMeta();
   if (!meta) {
-    await db.appMeta.put({ id: "meta", schemaVersion: 2 });
+    await repos.appMeta.putMeta({ id: "meta", schemaVersion: 2 });
     return;
   }
   if (typeof meta.schemaVersion !== "number" || meta.schemaVersion < 2) {
     const next: AppMeta = { ...meta, id: "meta", schemaVersion: 2 };
-    await db.appMeta.put(next);
+    await repos.appMeta.putMeta(next);
   }
 }

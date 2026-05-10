@@ -1,9 +1,9 @@
-import { useLiveQuery } from "dexie-react-hooks";
+import { useLiveStorageQuery } from "./useLiveStorageQuery";
 import * as svc from "@/services/measurementService";
 import { useAction } from "./useAction";
 
 export function useMeasurementsForCheckin(checkinId: string | undefined) {
-  const data = useLiveQuery(
+  const data = useLiveStorageQuery(
     () => (checkinId ? svc.listByCheckin(checkinId) : Promise.resolve([])),
     [checkinId],
   );
@@ -11,7 +11,7 @@ export function useMeasurementsForCheckin(checkinId: string | undefined) {
 }
 
 export function useHistoryForType(typeId: string | undefined) {
-  const data = useLiveQuery(
+  const data = useLiveStorageQuery(
     async () => {
       if (!typeId) return [];
       const arr = await svc.historyForType(typeId);

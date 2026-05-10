@@ -1,7 +1,10 @@
-import { db, type Checkin } from "@/db/db";
+import type { Checkin } from "@/db/db";
 import { dateKeyFromRecordedAt } from "@/db/dateKey";
 import { newId } from "@/lib/ids";
 import { checkinPatchSchema, checkinPayloadSchema } from "@/lib/validationSchemas";
+import { getRepositories } from "@/storage/factory";
+
+const repos = getRepositories();
 
 export type CheckinInput = {
   recordedAt: number;
@@ -11,15 +14,15 @@ export type CheckinInput = {
 };
 
 export const listRecent = (limit = 50) =>
-  db.checkins.orderBy("recordedAt").reverse().limit(limit).toArray();
+  repos.checkins.listRecent(limit);
 
 export const listAll = () =>
-  db.checkins.orderBy("recordedAt").reverse().toArray();
+  repos.checkins.listAll();
 
 export const getLatest = () =>
-  db.checkins.orderBy("recordedAt").reverse().first();
+  repos.checkins.getLatest();
 
-export const getById = (id: string) => db.checkins.get(id);
+export const getById = (id: string) => repos.checkins.getById(id);
 
 export async function createCheckin(input: CheckinInput): Promise<Checkin> {
   const parsed = checkinPayloadSchema.parse(input);
@@ -34,13 +37,13 @@ export async function createCheckin(input: CheckinInput): Promise<Checkin> {
     createdAt: now,
     updatedAt: now,
   };
-  await db.checkins.put(checkin);
+  await repos.checkins.put(checkin);
   return checkin;
 }
 
 export async function updateCheckin(id: string, patch: Partial<CheckinInput>): Promise<void> {
   const parsed = checkinPatchSchema.parse(patch);
-  const existing = await db.checkins.get(id);
+  const existing = await repos.checkins.getById(id);
   if (!existing) throw new Error("Check-in not found");
 
   const recordedAtChanged =
@@ -61,26 +64,22 @@ export async function updateCheckin(id: string, patch: Partial<CheckinInput>): P
         : existing.notes,
     updatedAt: Date.now(),
   };
-  await db.checkins.put(next);
+  await repos.checkins.put(next);
 
   // Mirror recordedAt onto measurements when it changed.
   if (recordedAtChanged) {
-    const ms = await db.measurements.where("checkinId").equals(id).toArray();
-    await db.measurements.bulkPut(ms.map((m) => ({ ...m, recordedAt: nextRecordedAt })));
+    await repos.measurements.updateRecordedAtForCheckin(id, nextRecordedAt);
   }
 }
 
 export async function deleteCheckin(id: string): Promise<void> {
-  await db.transaction("rw", db.checkins, db.measurements, db.photos, async () => {
-    await db.measurements.where("checkinId").equals(id).delete();
-    const photos = await db.photos.where("checkinId").equals(id).toArray();
-    for (const p of photos) {
-      await db.photos.update(p.id, { checkinId: undefined });
-    }
-    await db.checkins.delete(id);
+  await repos.maintenance.runInWriteTransaction(async () => {
+    await repos.measurements.deleteByCheckin(id);
+    await repos.photos.deleteByCheckin(id);
+    await repos.checkins.deleteById(id);
   });
 }
 
 export async function getPrevious(beforeTs: number): Promise<Checkin | undefined> {
-  return db.checkins.where("recordedAt").below(beforeTs).reverse().sortBy("recordedAt").then((arr) => arr[0]);
+  return repos.checkins.getPrevious(beforeTs);
 }

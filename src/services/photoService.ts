@@ -1,11 +1,14 @@
 import imageCompression from "browser-image-compression";
-import { db, type Photo, type PoseTag } from "@/db/db";
+import type { Photo, PoseTag } from "@/db/db";
 import { dateKeyFromRecordedAt } from "@/db/dateKey";
 import { newId } from "@/lib/ids";
 import {
   ALLOWED_PHOTO_MIME,
   photoPreCompressionSchema,
 } from "@/lib/validationSchemas";
+import { getRepositories } from "@/storage/factory";
+
+const repos = getRepositories();
 
 const COMPRESS_OPTS = {
   maxSizeMB: 0.8,
@@ -72,23 +75,23 @@ export async function addPhoto(args: {
     mimeType,
     createdAt: Date.now(),
   };
-  await db.photos.put(photo);
+  await repos.photos.put(photo);
   return photo;
 }
 
 export const listAll = () =>
-  db.photos.orderBy("recordedAt").reverse().toArray();
+  repos.photos.listAllRecent();
 
 export const listByPose = (poseTag: PoseTag) =>
-  db.photos.where("poseTag").equals(poseTag).reverse().sortBy("recordedAt");
+  repos.photos.listByPoseRecent(poseTag);
 
 export const listByCheckin = (checkinId: string) =>
-  db.photos.where("checkinId").equals(checkinId).toArray();
+  repos.photos.listByCheckin(checkinId);
 
 export async function deletePhoto(id: string): Promise<void> {
-  await db.photos.delete(id);
+  await repos.photos.deleteById(id);
 }
 
 export async function updatePoseTag(id: string, poseTag: PoseTag): Promise<void> {
-  await db.photos.update(id, { poseTag });
+  await repos.photos.updatePoseTag(id, poseTag);
 }
