@@ -1,4 +1,3 @@
-import type { Table } from "dexie";
 import type { MeasurementType } from "./db";
 
 /**
@@ -65,6 +64,12 @@ export function filterLegacyShadowedTypes<T extends { id: string }>(types: reado
   });
 }
 
+/** Dexie-agnostic store for `ensureBuiltInMeasurementTypes` (IndexedDB or SQLite). */
+export interface MeasurementTypeStore {
+  listAll(): Promise<MeasurementType[]>;
+  bulkPut(rows: MeasurementType[]): Promise<void>;
+}
+
 /**
  * Add only the canonical built-ins that are missing, keyed by canonical id.
  *
@@ -74,21 +79,14 @@ export function filterLegacyShadowedTypes<T extends { id: string }>(types: reado
  * sibling (e.g. `hips`) is still seeded if it is missing, so an upgraded DB
  * may legitimately contain both rows. Resolving which row is shown for new
  * entry is handled separately by `filterLegacyShadowedTypes`.
- *
- * The `measurementTypes` table is passed in so this module does not import
- * the Dexie instance, avoiding a circular import with `./db`.
  */
-export async function ensureBuiltInMeasurementTypes(
-  measurementTypes: Table<MeasurementType, string>,
-): Promise<void> {
+export async function ensureBuiltInMeasurementTypes(store: MeasurementTypeStore): Promise<void> {
   const now = Date.now();
-  const existingIds = new Set(
-    (await measurementTypes.toArray()).map((t) => t.id),
-  );
+  const existingIds = new Set((await store.listAll()).map((t) => t.id));
   const missing = BUILT_IN_TYPES
     .filter((t) => !existingIds.has(t.id))
     .map((t) => ({ ...t, createdAt: now }));
   if (missing.length > 0) {
-    await measurementTypes.bulkPut(missing);
+    await store.bulkPut(missing);
   }
 }

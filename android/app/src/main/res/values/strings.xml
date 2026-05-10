@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Body Log</string>
+    <string name="title_activity_main">Body Log</string>
+    <string name="package_name">uk.fulljoy.bodylog</string>
+    <string name="custom_url_scheme">uk.fulljoy.bodylog</string>
+</resources>

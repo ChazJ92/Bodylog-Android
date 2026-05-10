@@ -1,9 +1,9 @@
-import { useLiveQuery } from "dexie-react-hooks";
+import { useLiveStorageQuery } from "./useLiveStorageQuery";
 import * as svc from "@/services/profileService";
 import { useAction } from "./useAction";
 
 export function useProfile() {
-  const data = useLiveQuery(() => svc.get(), []);
+  const data = useLiveStorageQuery(() => svc.get(), []);
   return { data: data ?? null, isLoading: data === undefined };
 }
 

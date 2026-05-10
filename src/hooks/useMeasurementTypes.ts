@@ -1,19 +1,19 @@
-import { useLiveQuery } from "dexie-react-hooks";
+import { useLiveStorageQuery } from "./useLiveStorageQuery";
 import * as svc from "@/services/measurementTypeService";
 import { useAction } from "./useAction";
 
 export function useActiveMeasurementTypes() {
-  const data = useLiveQuery(() => svc.listActive(), []);
+  const data = useLiveStorageQuery(() => svc.listActive(), []);
   return { data: data ?? [], isLoading: data === undefined };
 }
 
 export function useAllMeasurementTypes() {
-  const data = useLiveQuery(() => svc.listAll(), []);
+  const data = useLiveStorageQuery(() => svc.listAll(), []);
   return { data: data ?? [], isLoading: data === undefined };
 }
 
 export function useManageableMeasurementTypes() {
-  const data = useLiveQuery(() => svc.listManageable(), []);
+  const data = useLiveStorageQuery(() => svc.listManageable(), []);
   return { data: data ?? [], isLoading: data === undefined };
 }
 

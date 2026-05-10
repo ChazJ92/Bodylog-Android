@@ -1,6 +1,5 @@
 import { prettifyError, z } from "zod";
 import {
-  db,
   type Checkin,
   type Measurement,
   type MeasurementType,
@@ -10,6 +9,9 @@ import {
 } from "@/db/db";
 import { dateKeyFromRecordedAt } from "@/db/dateKey";
 import { syncEssentialData } from "@/services/bootstrapService";
+import { getRepositories } from "@/storage/factory";
+
+const repos = getRepositories();
 
 /** Export / import document version (not Dexie appMeta schemaVersion). */
 export const BACKUP_SCHEMA_VERSION = 1;
@@ -256,12 +258,12 @@ export function tryPrepareImport(
 export async function exportAll(): Promise<string> {
   const [profile, settings, measurementTypes, checkins, measurements, photos] =
     await Promise.all([
-      db.profile.toArray(),
-      db.settings.toArray(),
-      db.measurementTypes.toArray(),
-      db.checkins.toArray(),
-      db.measurements.toArray(),
-      db.photos.toArray(),
+      repos.profile.listAll(),
+      repos.settings.listAll(),
+      repos.measurementTypes.listAll(),
+      repos.checkins.listAllRaw(),
+      repos.measurements.listAll(),
+      repos.photos.listAll(),
     ]);
   const photosOut = await Promise.all(
     photos.map(async (p) => {
@@ -293,27 +295,14 @@ export async function importPrepared(prepared: PreparedImport): Promise<{ replac
     photos,
   } = prepared;
 
-  await db.transaction(
-    "rw",
-    [db.profile, db.settings, db.measurementTypes, db.checkins, db.measurements, db.photos],
-    async () => {
-      await Promise.all([
-        db.profile.clear(),
-        db.settings.clear(),
-        db.measurementTypes.clear(),
-        db.checkins.clear(),
-        db.measurements.clear(),
-        db.photos.clear(),
-      ]);
-
-      if (measurementTypes.length) await db.measurementTypes.bulkPut(measurementTypes);
-      if (checkins.length) await db.checkins.bulkPut(checkins);
-      if (measurements.length) await db.measurements.bulkPut(measurements);
-      if (photos.length) await db.photos.bulkPut(photos);
-      if (profile.length) await db.profile.bulkPut(profile);
-      if (settings.length) await db.settings.bulkPut(settings);
-    },
-  );
+  await repos.maintenance.replaceAllData({
+    profile,
+    settings,
+    measurementTypes,
+    checkins,
+    measurements,
+    photos,
+  });
 
   await syncEssentialData();
   return { replaced: true };
@@ -325,19 +314,6 @@ export async function importAll(json: string): Promise<{ replaced: boolean }> {
 }
 
 export async function clearAll(): Promise<void> {
-  await db.transaction(
-    "rw",
-    [db.profile, db.settings, db.measurementTypes, db.checkins, db.measurements, db.photos],
-    async () => {
-      await Promise.all([
-        db.profile.clear(),
-        db.settings.clear(),
-        db.measurementTypes.clear(),
-        db.checkins.clear(),
-        db.measurements.clear(),
-        db.photos.clear(),
-      ]);
-    },
-  );
+  await repos.maintenance.clearAllData();
   await syncEssentialData();
 }
